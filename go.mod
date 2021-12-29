@@ -1,4 +1,4 @@
-module github.com/DaikiYamakawa/deepl-go
+module github.com/igorskh/deepl-go
 
 go 1.14
 

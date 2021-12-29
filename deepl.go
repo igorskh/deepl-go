@@ -41,6 +41,12 @@ type TranslateResponse struct {
 	Translations []translation `json:"translations"`
 }
 
+type SupportedLanguage struct {
+	Language          string `json:"language"`
+	Name              string `json:"name"`
+	SupportsFormality bool   `json:"supports_formality"`
+}
+
 type translation struct {
 	DetectedSourceLanguage string `json:"detected_source_language"`
 	Text                   string `json:"text"`
@@ -53,6 +59,14 @@ type ErrorResponse struct {
 type AccountStatus struct {
 	CharacterCount int `json:"character_count"`
 	CharacterLimit int `json:"character_limit"`
+}
+
+type TranslationRequest struct {
+	Text       string  `json:"text"`
+	SourceLang *string `json:"source_lang"`
+	TargetLang string  `json:"target_lang"`
+	Model      *string `json:"model"`
+	Formality  *string `json:"formality"`
 }
 
 func getAPIKey() (string, error) {
@@ -170,12 +184,54 @@ func (c *Client) GetAccountStatus(ctx context.Context) (*AccountStatus, error) {
 	return &accountStatusResp, nil
 }
 
-func (c *Client) TranslateSentence(ctx context.Context, text string, sourceLang string, targetLang string) (*TranslateResponse, error) {
+func (c *Client) ListSupportedLanguages(ctx context.Context) (*[]SupportedLanguage, error) {
+	var listResp []SupportedLanguage
+
+	reqURL := *c.BaseURL
+
+	reqURL.Path = path.Join(reqURL.Path, "v2", "languages")
+
+	q := reqURL.Query()
+
+	apiKey, err := getAPIKey()
+	if err != nil {
+		return nil, err
+	}
+	q.Add("auth_key", apiKey)
+
+	reqURL.RawQuery = q.Encode()
+	// make new request
+	req, err := http.NewRequest(http.MethodGet, reqURL.String(), nil)
+	if err != nil {
+		err := xerrors.Errorf("Failed to create request: %w", err)
+		return nil, err
+	}
+
+	// set header
+	req.Header.Set("User-Agent", "Deepl-Go-Client")
+
+	// set context
+	req = req.WithContext(ctx)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		err := xerrors.Errorf("Failed to send http request: %w", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := responseParse(resp, &listResp); err != nil {
+		return nil, err
+	}
+
+	return &listResp, nil
+}
+
+func (c *Client) TranslateSentence(ctx context.Context, request TranslationRequest) (*TranslateResponse, error) {
 	var transResp TranslateResponse
 
 	reqURL := *c.BaseURL
 
-	// Set path
 	reqURL.Path = path.Join(reqURL.Path, "v2", "translate")
 
 	q := reqURL.Query()
@@ -186,9 +242,14 @@ func (c *Client) TranslateSentence(ctx context.Context, text string, sourceLang 
 	}
 
 	q.Add("auth_key", apiKey)
-	q.Add("text", text)
-	q.Add("target_lang", targetLang)
-	q.Add("source_lang", sourceLang)
+	q.Add("text", request.Text)
+	q.Add("target_lang", request.TargetLang)
+	if request.SourceLang != nil {
+		q.Add("source_lang", *request.SourceLang)
+	}
+	if request.Formality != nil {
+		q.Add("formality", *request.Formality)
+	}
 	reqURL.RawQuery = q.Encode()
 
 	// make new request

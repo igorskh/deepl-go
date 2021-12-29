@@ -156,7 +156,12 @@ func TestClient_TranslateSentence(t *testing.T) {
 			cli, teardown := initTestServer(t, tc.mockResponseHeaderFile, tc.mockResponseBodyFile, tc.expectedMethod, tc.expectedRequestPath, tc.expectedRawQuery)
 			defer teardown()
 
-			correctResponse, err := cli.TranslateSentence(context.Background(), tc.inputText, tc.inputSourceLang, tc.inputTargetLang)
+			translateRequest := TranslationRequest{
+				Text:       tc.inputText,
+				SourceLang: &tc.inputSourceLang,
+				TargetLang: tc.inputTargetLang,
+			}
+			correctResponse, err := cli.TranslateSentence(context.Background(), translateRequest)
 			if tc.expectedErrMessage == "" {
 				if err != nil {
 					t.Fatalf("response error should be nil. got=%s", err.Error())
@@ -206,12 +211,12 @@ func TestClient_GetAccountStatus(t *testing.T) {
 	}
 
 	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T){
+		t.Run(tc.name, func(t *testing.T) {
 			cli, teardown := initTestServer(t, tc.mockResponseHeaderFile, tc.mockResponseBodyFile, tc.expectedMethod, tc.expectedRequestPath, tc.expectedRawQuery)
 			defer teardown()
 
 			correctResponse, err := cli.GetAccountStatus(context.Background())
-			if tc.expectedErrMessage  == "" {
+			if tc.expectedErrMessage == "" {
 				if err != nil {
 					t.Fatalf("response error should be nil. got=%s", err.Error())
 				}
